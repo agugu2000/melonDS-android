@@ -1,0 +1,95 @@
+name: LCD Plus CI (manual only)
+
+# Manual trigger only. This workflow must never run on push or pull_request:
+# it exists so that a branch can be compiled on demand from the Actions tab.
+#
+# Note: GitHub only registers a workflow_dispatch workflow for the UI once the
+# file exists on the default branch, hence this file lives on master as well as
+# on the feature branch. It is inert unless somebody clicks "Run workflow".
+on:
+  workflow_dispatch:
+    inputs:
+      gradle_task:
+        description: 'Gradle task to run'
+        required: true
+        # Same variant as the upstream nightly build. Debug variants work too
+        # and need no signing secrets.
+        default: ':app:assembleGitHubNightlyRelease'
+      ref:
+        description: 'Informational only: the branch/commit you selected in the UI'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The emulator core lives in an external repository
+          # (rafaelvcaetano/melonDS-android-lib) and is consumed as a submodule.
+          # Nothing is vendored into this repository.
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Show what is being built
+        run: |
+          echo "repository : $GITHUB_REPOSITORY"
+          echo "ref        : $GITHUB_REF"
+          echo "branch     : $(git rev-parse --abbrev-ref HEAD)"
+          echo "commit     : $(git rev-parse HEAD)"
+          echo "task       : ${{ inputs.gradle_task }}"
+          git submodule status
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: zulu
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # Mirrors the upstream nightly workflow: the release signing config is
+      # read from local.properties, so the keystore is materialised here.
+      # MELONDS_KEY_ALIAS and MELONDS_KEY_PASSWORD are optional and only needed
+      # when they differ from "melonds" and from the store password.
+      - name: Materialize signing config
+        if: contains(inputs.gradle_task, 'Release')
+        env:
+          MELONDS_KEYSTORE: ${{ secrets.MELONDS_KEYSTORE }}
+          MELONDS_KEYSTORE_PASSWORD: ${{ secrets.MELONDS_KEYSTORE_PASSWORD }}
+          MELONDS_KEY_ALIAS: ${{ secrets.MELONDS_KEY_ALIAS }}
+          MELONDS_KEY_PASSWORD: ${{ secrets.MELONDS_KEY_PASSWORD }}
+        run: |
+          if [ -z "$MELONDS_KEYSTORE" ] || [ -z "$MELONDS_KEYSTORE_PASSWORD" ]; then
+            echo "::error::MELONDS_KEYSTORE / MELONDS_KEYSTORE_PASSWORD are not set, so a release build cannot be signed. Add them under Settings > Secrets and variables > Actions, or run a Debug task instead."
+            exit 1
+          fi
+          KEYSTORE="$RUNNER_TEMP/keystore.jks"
+          echo "$MELONDS_KEYSTORE" | base64 -d > "$KEYSTORE"
+          {
+            echo "MELONDS_KEYSTORE=$KEYSTORE"
+            echo "MELONDS_KEYSTORE_PASSWORD=$MELONDS_KEYSTORE_PASSWORD"
+            echo "MELONDS_KEY_ALIAS=${MELONDS_KEY_ALIAS:-melonds}"
+            echo "MELONDS_KEY_PASSWORD=${MELONDS_KEY_PASSWORD:-$MELONDS_KEYSTORE_PASSWORD}"
+          } >> local.properties
+          echo "Signing config written, alias ${MELONDS_KEY_ALIAS:-melonds}"
+
+      - name: Build
+        run: |
+          chmod +x ./gradlew
+          ./gradlew ${{ inputs.gradle_task }} --stacktrace
+
+      - name: Show artifacts
+        if: always()
+        run: ls -lh app/build/outputs/apk/*/*/*.apk || true
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: warn
