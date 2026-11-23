@@ -155,10 +155,10 @@ class ShaderProgramSource private constructor(val textureFiltering: TextureFilte
             #endif
 
             uniform sampler2D tex;
-            uniform vec2 uSrcSize;    // size of one panel, in source texels (256x192)
+            uniform vec2 uSrcSize;    // size of one panel, in DS pixels (256x192)
             uniform vec2 uUVMin;      // texture coordinate of the panel's first texel edge
             uniform vec2 uUVSpan;     // extent of the panel, in texture coordinates
-            uniform vec2 uFragScale;  // source texels covered by one framebuffer pixel
+            uniform vec2 uFragScale;  // DS pixels covered by one framebuffer pixel
 
             varying vec2 uv;
             varying float alpha;
@@ -228,12 +228,14 @@ class ShaderProgramSource private constructor(val textureFiltering: TextureFilte
                 return ROW_WIDTH * (antideriv_row(zh) - antideriv_row(zl)) / dx;
             }
 
-            /* Fetches the texel at [idx] and moves it into linear light.
-             * Only the lower bound is clamped: the gain deliberately pushes the
-             * bright end above 1 so the tone curve stays where it was, and pow()
-             * is perfectly happy with a base larger than one. */
-            vec3 fetch_texel(vec2 idx, vec2 texel) {
-                vec3 c = texture2D(tex, uUVMin + (idx + 0.5) * texel).bgr * GAIN + BLACKLEVEL;
+            /* Fetches the colour at [p], given in DS pixels, and moves it into linear
+             * light. [dsPixel] is the size of one DS pixel in texture coordinates, so
+             * a panel rendered above 1x resolves to whichever of its texels [p] falls
+             * on. Only the lower bound is clamped: the gain deliberately pushes the
+             * bright end above 1 so the tone curve stays where it was, and pow() is
+             * perfectly happy with a base larger than one. */
+            vec3 fetch_pixel(vec2 p, vec2 dsPixel) {
+                vec3 c = texture2D(tex, uUVMin + p * dsPixel).bgr * GAIN + BLACKLEVEL;
                 return pow(max(c, 0.0), vec3(GAMMA)) + AMBIENT;
             }
 
@@ -241,9 +243,9 @@ class ShaderProgramSource private constructor(val textureFiltering: TextureFilte
                 /* Guard against an unset uniform turning everything into NaN */
                 vec2 span = max(uUVSpan, vec2(1.0e-6));
                 vec2 size = max(uSrcSize, vec2(1.0));
-                vec2 texel = span / size;
+                vec2 dsPixel = span / size;
 
-                /* Position inside the panel, in source pixels. */
+                /* Position inside the panel, in DS pixels. */
                 vec2 pos = (uv - uUVMin) / span * size;
 
                 /* floor(pos - 0.5) puts the fragment's position somewhere in
@@ -281,11 +283,34 @@ class ShaderProgramSource private constructor(val textureFiltering: TextureFilte
                 float tcol = intsmear_row(off.y, dy);
                 float bcol = intsmear_row(off.y - 1.0, dy);
 
-                vec2 hi = size - 1.0;
-                vec3 topLeft     = fetch_texel(clamp(cell + vec2(0.0, 0.0), vec2(0.0), hi), texel);
-                vec3 topRight    = fetch_texel(clamp(cell + vec2(1.0, 0.0), vec2(0.0), hi), texel);
-                vec3 bottomLeft  = fetch_texel(clamp(cell + vec2(0.0, 1.0), vec2(0.0), hi), texel);
-                vec3 bottomRight = fetch_texel(clamp(cell + vec2(1.0, 1.0), vec2(0.0), hi), texel);
+                /* Sample every tap at the same offset inside its own DS pixel as the
+                 * fragment has inside its own, rather than at the pixel centre. At 1x a
+                 * pixel holds exactly one texel, so this lands in the very texel the
+                 * centre would have picked; above 1x it keeps the detail instead of
+                 * decimating the panel back to 1x.
+                 *
+                 * Every constant below is 1e-2 for one reason: it keeps each tap at
+                 * least 1e-2 * N texels away from any texel boundary, which beats the
+                 * half step of a 1/256 fixed point sampler by 5x at N = 1 and by more
+                 * above, so no tap can be rounded into a neighbouring texel. The same
+                 * guard is needed inside the pixel, and at the panel edge, where
+                 * uUVMin is itself only an approximation of the boundary and a tie
+                 * would land on the rows between the two panels. At 1x, moving a sample
+                 * by a hundredth of a pixel lands in the same texel either way.
+                 *
+                 * The upper clamp is also what catches taps inside the last pixel:
+                 * there base already sits at size - 1e-2, and base + 1 overshoots the
+                 * panel and is clamped back onto it, so both still land on that pixel's
+                 * last texel. */
+                vec2 inside = clamp(pos - floor(pos), vec2(1.0e-2), vec2(0.99));
+                vec2 base = cell + inside;
+                vec2 lo = vec2(1.0e-2);
+                vec2 lim = size - vec2(1.0e-2);
+
+                vec3 topLeft     = fetch_pixel(clamp(base + vec2(0.0, 0.0), lo, lim), dsPixel);
+                vec3 topRight    = fetch_pixel(clamp(base + vec2(1.0, 0.0), lo, lim), dsPixel);
+                vec3 bottomLeft  = fetch_pixel(clamp(base + vec2(0.0, 1.0), lo, lim), dsPixel);
+                vec3 bottomRight = fetch_pixel(clamp(base + vec2(1.0, 1.0), lo, lim), dsPixel);
 
                 vec3 color = topLeft     * lcol * tcol
                            + topRight    * rcol * tcol
