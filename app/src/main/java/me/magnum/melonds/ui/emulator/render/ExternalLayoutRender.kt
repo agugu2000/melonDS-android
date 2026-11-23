@@ -11,6 +11,8 @@ import me.magnum.melonds.common.opengl.ShaderProgramSource
 import me.magnum.melonds.common.opengl.VideoFilterShaderProvider
 import me.magnum.melonds.domain.model.Rect
 import me.magnum.melonds.domain.model.RuntimeBackground
+import me.magnum.melonds.domain.model.SCREEN_HEIGHT
+import me.magnum.melonds.domain.model.SCREEN_WIDTH
 import me.magnum.melonds.domain.model.VideoFiltering
 import me.magnum.melonds.domain.model.layout.BackgroundMode
 import me.magnum.melonds.domain.model.render.PresentFrameWrapper
@@ -202,6 +204,57 @@ class ExternalLayoutRender(
         }
     }
 
+    /**
+     * Tells the LCD grid shader exactly where this quad sits in the frame texture
+     * and how large one of its pixels is on screen.
+     *
+     * Both the texture bounds and the on-screen size are read back from the very
+     * buffers that are about to be drawn, so the value handed to the shader can
+     * never disagree with the geometry that is actually rasterised.
+     */
+    private fun applyScreenGeometry(shader: Shader, pos: FloatBuffer, uv: FloatBuffer) {
+        var minU = Float.MAX_VALUE
+        var maxU = -Float.MAX_VALUE
+        var minV = Float.MAX_VALUE
+        var maxV = -Float.MAX_VALUE
+        var minX = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+
+        for (i in 0 until 6) {
+            val u = uv.get(i * 2)
+            val v = uv.get(i * 2 + 1)
+            if (u < minU) minU = u
+            if (u > maxU) maxU = u
+            if (v < minV) minV = v
+            if (v > maxV) maxV = v
+
+            val x = pos.get(i * 2)
+            val y = pos.get(i * 2 + 1)
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+
+        // A zero sized quad covers no pixels, but clamping keeps the uniforms sane
+        val spanX = maxOf((maxX - minX) * 0.5f * viewWidth, 1f)
+        val spanY = maxOf((maxY - minY) * 0.5f * viewHeight, 1f)
+
+        val fragScaleX: Float
+        val fragScaleY: Float
+        if (rotateLeft) {
+            fragScaleX = SCREEN_WIDTH.toFloat() / spanY
+            fragScaleY = SCREEN_HEIGHT.toFloat() / spanX
+        } else {
+            fragScaleX = SCREEN_WIDTH.toFloat() / spanX
+            fragScaleY = SCREEN_HEIGHT.toFloat() / spanY
+        }
+
+        shader.setScreenGeometry(minU, minV, maxU - minU, maxV - minV, fragScaleX, fragScaleY)
+    }
+
     override fun drawFrame(presentFrameWrapper: PresentFrameWrapper) {
         if (!presentFrameWrapper.isValidFrame) {
             return
@@ -226,6 +279,7 @@ class ExternalLayoutRender(
             GLES30.glVertexAttribPointer(shader.attribPos, 2, GLES30.GL_FLOAT, false, 0, buf)
             GLES30.glVertexAttribPointer(shader.attribUv, 2, GLES30.GL_FLOAT, false, 0, uvTop)
             GLES30.glUniform1i(shader.uniformTex, 0)
+            applyScreenGeometry(shader, buf, uvTop)
             GLES30.glEnable(GLES30.GL_BLEND)
             GLES30.glBlendColor(0f, 0f, 0f, topAlpha)
             GLES30.glBlendFunc(GLES30.GL_CONSTANT_ALPHA, GLES30.GL_ONE_MINUS_CONSTANT_ALPHA)
@@ -239,6 +293,7 @@ class ExternalLayoutRender(
             GLES30.glVertexAttribPointer(shader.attribPos, 2, GLES30.GL_FLOAT, false, 0, buf)
             GLES30.glVertexAttribPointer(shader.attribUv, 2, GLES30.GL_FLOAT, false, 0, uvBottom)
             GLES30.glUniform1i(shader.uniformTex, 0)
+            applyScreenGeometry(shader, buf, uvBottom)
             GLES30.glEnable(GLES30.GL_BLEND)
             GLES30.glBlendColor(0f, 0f, 0f, bottomAlpha)
             GLES30.glBlendFunc(GLES30.GL_CONSTANT_ALPHA, GLES30.GL_ONE_MINUS_CONSTANT_ALPHA)

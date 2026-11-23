@@ -31,6 +31,14 @@ class ExternalScreenRender(
     private var areRenderSettingsDirty = false
     private var viewportLock = Any()
 
+    // Last geometry pushed to the vertex buffer, kept so the LCD grid shader can be
+    // told the exact on-screen footprint of this screen's pixels every frame.
+    private var screenCoords = FloatArray(12)
+    private var screenUvs = FloatArray(12)
+    // Snapshot of the rotation that is baked into screenCoords, so the fragment
+    // geometry never disagrees with the vertices for a frame.
+    private var screenRotated = false
+
     override fun updateRendererConfiguration(newRendererConfiguration: RuntimeRendererConfiguration?) {
         synchronized(viewportLock) {
             videoFiltering = newRendererConfiguration?.videoFiltering ?: VideoFiltering.NONE
@@ -146,6 +154,10 @@ class ExternalScreenRender(
             .put(vertexData)
             .position(0)
 
+        screenCoords = coords.copyOf()
+        screenUvs = uvs.copyOf()
+        screenRotated = rotateLeft
+
         GLES30.glBindVertexArray(screensVao)
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, screensVbo)
         GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, vertexBufferSize, vertexBuffer, GLES30.GL_STATIC_DRAW)
@@ -194,8 +206,57 @@ class ExternalScreenRender(
             GLES30.glVertexAttribPointer(it.attribUv, 2, GLES30.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 2 * Float.SIZE_BYTES)
             GLES30.glVertexAttribPointer(it.attribAlpha, 1, GLES30.GL_FLOAT, false, 5 * Float.SIZE_BYTES, (2 + 2) * Float.SIZE_BYTES)
             GLES30.glUniform1i(it.uniformTex, 0)
+            applyScreenGeometry(it)
             GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 6)
         }
+    }
+
+    /**
+     * Hands the exact texture bounds and on-screen footprint of this screen to the
+     * LCD grid shader, so the grid is generated from this panel's own first texel
+     * and stays aligned no matter how the surface is scaled or rotated.
+     */
+    private fun applyScreenGeometry(shader: Shader) {
+        var minU = Float.MAX_VALUE
+        var maxU = -Float.MAX_VALUE
+        var minV = Float.MAX_VALUE
+        var maxV = -Float.MAX_VALUE
+        var minX = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+
+        for (i in 0 until 6) {
+            val u = screenUvs[i * 2]
+            val v = screenUvs[i * 2 + 1]
+            if (u < minU) minU = u
+            if (u > maxU) maxU = u
+            if (v < minV) minV = v
+            if (v > maxV) maxV = v
+
+            val x = screenCoords[i * 2]
+            val y = screenCoords[i * 2 + 1]
+            if (x < minX) minX = x
+            if (x > maxX) maxX = x
+            if (y < minY) minY = y
+            if (y > maxY) maxY = y
+        }
+
+        // A zero sized quad covers no pixels, but clamping keeps the uniforms sane
+        val spanX = maxOf((maxX - minX) * 0.5f * surfaceWidth, 1f)
+        val spanY = maxOf((maxY - minY) * 0.5f * surfaceHeight, 1f)
+
+        val fragScaleX: Float
+        val fragScaleY: Float
+        if (screenRotated) {
+            fragScaleX = SCREEN_WIDTH.toFloat() / spanY
+            fragScaleY = SCREEN_HEIGHT.toFloat() / spanX
+        } else {
+            fragScaleX = SCREEN_WIDTH.toFloat() / spanX
+            fragScaleY = SCREEN_HEIGHT.toFloat() / spanY
+        }
+
+        shader.setScreenGeometry(minU, minV, maxU - minU, maxV - minV, fragScaleX, fragScaleY)
     }
 
     fun setKeepAspectRatio(keep: Boolean) {

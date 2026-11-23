@@ -304,7 +304,10 @@ class SharedPreferencesSettingsRepository(
     override fun getVideoFiltering(): Flow<VideoFiltering> {
         return getOrCreatePreferenceSharedFlow("video_filtering") {
             val filteringPreference = preferences.getString("video_filtering", "none")!!
-            VideoFiltering.valueOf(filteringPreference.uppercase())
+            // A value written by a build that knew a filter this build does not
+            // must not crash the app after a downgrade.
+            runCatching { VideoFiltering.valueOf(filteringPreference.uppercase()) }
+                .getOrDefault(VideoFiltering.NONE)
         }
     }
 

@@ -11,6 +11,7 @@ import me.magnum.melonds.common.opengl.VideoFilterShaderProvider
 import me.magnum.melonds.domain.model.Rect
 import me.magnum.melonds.domain.model.RuntimeBackground
 import me.magnum.melonds.domain.model.SCREEN_HEIGHT
+import me.magnum.melonds.domain.model.SCREEN_WIDTH
 import me.magnum.melonds.domain.model.VideoFiltering
 import me.magnum.melonds.domain.model.layout.BackgroundMode
 import me.magnum.melonds.domain.model.render.PresentFrameWrapper
@@ -22,6 +23,25 @@ import java.nio.ByteOrder
 import kotlin.math.roundToInt
 
 class DSRenderer(private val context: Context) : EmulatorRenderer {
+
+    /**
+     * Geometry of a single screen quad, as seen by the LCD grid shader.
+     *
+     * Each panel is drawn on its own so that the shader can be told exactly where
+     * that panel starts inside the frame texture and how large one of its pixels
+     * ends up on screen. Both panels then generate their grid from their own first
+     * texel, which is what stops the two grids from drifting into each other.
+     */
+    private class ScreenQuad(
+        val uvMin: FloatArray,
+        val uvSpan: FloatArray,
+        val fragScale: FloatArray,
+    )
+
+    // Written by updateScreenCoordinates() and read by drawFrame(), both on the GL
+    // thread, so this needs no lock of its own even though the configuration that
+    // produces it is published under one.
+    private var screenQuads: List<ScreenQuad> = emptyList()
 
     private val configurationLock = Any()
     private var rendererConfiguration: RuntimeRendererConfiguration? = null
@@ -177,23 +197,57 @@ class DSRenderer(private val context: Context) : EmulatorRenderer {
             1f, 1f,
         )
 
-        val (overScreenVertexData, underScreenVertexData) = if (bottomOnTop) {
-            val over = bottomScreenRect?.let { buildScreenVertexData(it, bottomUvs, bottomAlpha) }
-            val under = topScreenRect?.let { buildScreenVertexData(it, topUvs, topAlpha) }
+        val (overScreen, underScreen) = if (bottomOnTop) {
+            val over = bottomScreenRect?.let { Triple(it, bottomUvs, bottomAlpha) }
+            val under = topScreenRect?.let { Triple(it, topUvs, topAlpha) }
             over to under
         } else {
-            val over = topScreenRect?.let { buildScreenVertexData(it, topUvs, topAlpha) }
-            val under = bottomScreenRect?.let { buildScreenVertexData(it, bottomUvs, bottomAlpha) }
+            val over = topScreenRect?.let { Triple(it, topUvs, topAlpha) }
+            val under = bottomScreenRect?.let { Triple(it, bottomUvs, bottomAlpha) }
             over to under
         }
 
-        val vertexBufferSize = ((overScreenVertexData?.size ?: 0) + (underScreenVertexData?.size ?: 0)) * Float.SIZE_BYTES
+        // Draw order: the under screen first, then the over screen, so alpha blending matches
+        val quads = listOfNotNull(underScreen, overScreen)
+        val vertexData = FloatArray(quads.size * 6 * 5)
+        var offset = 0
+        for ((rect, uvs, alpha) in quads) {
+            buildScreenVertexData(rect, uvs, alpha).copyInto(vertexData, offset)
+            offset += 6 * 5
+        }
+
+        screenQuads = quads.map { (rect, uvs, _) ->
+            // Scan every vertex rather than knowing which corners carry the extremes
+            var uMin = Float.MAX_VALUE
+            var uMax = -Float.MAX_VALUE
+            var vMin = Float.MAX_VALUE
+            var vMax = -Float.MAX_VALUE
+            for (i in 0 until 6) {
+                val u = uvs[i * 2]
+                val v = uvs[i * 2 + 1]
+                if (u < uMin) uMin = u
+                if (u > uMax) uMax = u
+                if (v < vMin) vMin = v
+                if (v > vMax) vMax = v
+            }
+
+            ScreenQuad(
+                uvMin = floatArrayOf(uMin, vMin),
+                uvSpan = floatArrayOf(uMax - uMin, vMax - vMin),
+                // Source texels covered by one on-screen pixel
+                fragScale = floatArrayOf(
+                    SCREEN_WIDTH.toFloat() / maxOf(rect.width, 1),
+                    SCREEN_HEIGHT.toFloat() / maxOf(rect.height, 1),
+                ),
+            )
+        }
+
+        val vertexBufferSize = vertexData.size * Float.SIZE_BYTES
         val vertexBuffer = ByteBuffer.allocateDirect(vertexBufferSize)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
             .apply {
-                underScreenVertexData?.let { put(it) }
-                overScreenVertexData?.let { put(it) }
+                put(vertexData)
                 position(0)
             }
 
@@ -278,7 +332,21 @@ class DSRenderer(private val context: Context) : EmulatorRenderer {
             GLES30.glVertexAttribPointer(shader.attribUv, 2, GLES30.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 2 * Float.SIZE_BYTES)
             GLES30.glVertexAttribPointer(shader.attribAlpha, 1, GLES30.GL_FLOAT, false, 5 * Float.SIZE_BYTES, 4 * Float.SIZE_BYTES)
             GLES30.glUniform1i(shader.uniformTex, 0)
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, screenIndices)
+
+            // One draw per screen so the LCD grid shader gets that screen's exact geometry
+            var firstVertex = 0
+            for (quad in screenQuads) {
+                if (firstVertex + 6 > screenIndices) {
+                    break
+                }
+                shader.setScreenGeometry(
+                    quad.uvMin[0], quad.uvMin[1],
+                    quad.uvSpan[0], quad.uvSpan[1],
+                    quad.fragScale[0], quad.fragScale[1],
+                )
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLES, firstVertex, 6)
+                firstVertex += 6
+            }
 
             GLES30.glBindVertexArray(0)
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0)

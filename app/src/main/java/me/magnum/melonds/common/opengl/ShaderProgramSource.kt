@@ -108,6 +108,200 @@ class ShaderProgramSource private constructor(val textureFiltering: TextureFilte
                     "}"
         )
 
+        // LCD grid, ported from cgwg's "lcd-grid-v2".
+        //
+        // The original lives in the RetroArch shader packs (handheld/shaders/
+        // lcd-cgwg/lcd-grid-v2.glsl). It is the only one of them that is not tied
+        // to a fixed output resolution: instead of stamping a grid texture or
+        // point sampling a sine, it describes the light emitted by one LCD cell as
+        // a continuous profile and then analytically integrates that profile over
+        // the footprint of the output pixel. The result is the exact box filtered
+        // value of the ideal panel at *any* scale, so it cannot alias.
+        //
+        // Port notes. The original derives the subpixel position and the footprint
+        // from OutputSize / TextureSize / InputSize and rounds them with a -0.4999
+        // epsilon, which is where the residual shimmer came from. Here the caller
+        // supplies the exact geometry through uUVMin / uUVSpan / uFragScale, one
+        // quad at a time, so every panel starts its grid on its own first texel.
+        //
+        // Like the original this reconstructs each fragment from the 2x2 block of
+        // neighbouring pixels, which is enough for every footprint up to one whole
+        // pixel. It therefore expects a panel to be drawn at its native size or
+        // larger; below 1x the block is too small to gather the light that belongs
+        // to the fragment and the grid starts to alias.
+        //
+        // Author: cgwg
+        // License: GPLv2+
+        val LcdPlusShader = ShaderProgramSource(
+            TextureFiltering.NEAREST,
+            """
+            attribute vec2 vPos;
+            attribute vec2 vUV;
+            attribute float vAlpha;
+            varying vec2 uv;
+            varying float alpha;
+
+            void main() {
+                gl_Position = vec4(vPos, 0.0, 1.0);
+                uv = vUV;
+                alpha = vAlpha;
+            }
+            """.trimIndent(),
+            """
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
+            precision mediump float;
+            #endif
+
+            uniform sampler2D tex;
+            uniform vec2 uSrcSize;    // size of one panel, in source texels (256x192)
+            uniform vec2 uUVMin;      // texture coordinate of the panel's first texel edge
+            uniform vec2 uUVSpan;     // extent of the panel, in texture coordinates
+            uniform vec2 uFragScale;  // source texels covered by one framebuffer pixel
+
+            varying vec2 uv;
+            varying float alpha;
+
+            /* Input gamma, output gamma and the gain that compensates the aperture.
+             * Gamma, gain, black level and the subpixel tint are the values from the
+             * RA preset for the DS (lcd-grid-v2-nds-color), except for the gain.
+             *
+             * The profiles only pass ~0.21 of the light (0.396 for the subpixel and
+             * row profiles together, times 0.75^2.2 for the subpixel tint), so a gain
+             * well above 1 is needed to land near the input brightness. The RA preset
+             * value of 1.5 was tuned for a chain that had already been brightened
+             * elsewhere and leaves a white panel visibly dark. Pushing the gain higher
+             * stops paying off quickly, because the bright subpixel cores clip at
+             * least as fast as the gain adds, so 1.8 is about as far as it is worth
+             * going. The row grid survives at any of these values: the gaps between
+             * rows are much darker than the cores and stay under the clip point. */
+            const float GAIN = 1.8;
+            const float GAMMA = 2.2;
+            const float OUTGAMMA = 2.2;
+            const float BLACKLEVEL = 0.0;
+            const float AMBIENT = 0.0;
+
+            /* Colour of the R, G and B subpixels */
+            const vec3 SUBPIX_R = vec3(0.75, 0.0, 0.0);
+            const vec3 SUBPIX_G = vec3(0.0, 0.75, 0.0);
+            const vec3 SUBPIX_B = vec3(0.0, 0.0, 0.75);
+
+            /* Subpixel order left to right. 1 = B,G,R, which is what the DS preset of
+             * the original shader uses (BGR = 1); 0 = R,G,B. */
+            const float BGR = 1.0;
+
+            /* Horizontal profile half width, in subpixel units (one subpixel = 1/3 of a pixel) */
+            const float SUBPIX_WIDTH = 1.5;
+            /* Vertical profile half width, in pixels */
+            const float ROW_WIDTH = 0.63;
+
+            /* Antiderivative of (1 - x^2 - x^4 + x^6)^2, the subpixel emission profile. */
+            float antideriv_subpix(float z) {
+                float z2 = z * z;
+                return z * (1.0 + z2 * (-0.6666667 + z2 * (-0.2 + z2 * (0.5714286 +
+                       z2 * (-0.1111111 + z2 * (-0.1818182 + z2 * 0.0769231))))));
+            }
+
+            /* Antiderivative of (1 - 2x^4 + x^6)^2, the row emission profile.
+             * The integrand has no x^2 term, so the antiderivative has no z^3 term:
+             * the explicit 0.0 below is that gap. Dropping it shifts every later
+             * coefficient down by two, which changes the shape of the profile and
+             * visibly weakens the dark line between rows. */
+            float antideriv_row(float z) {
+                float z2 = z * z;
+                return z * (1.0 + z2 * (0.0 + z2 * (-0.8 + z2 * (0.2857143 +
+                       z2 * (0.4444444 + z2 * (-0.3636364 + z2 * 0.0769231))))));
+            }
+
+            /* Mean of the subpixel profile over a footprint of width dx, centred on x. */
+            float intsmear_subpix(float x, float dx) {
+                float zl = clamp((x - dx * 0.5) / SUBPIX_WIDTH, -1.0, 1.0);
+                float zh = clamp((x + dx * 0.5) / SUBPIX_WIDTH, -1.0, 1.0);
+                return SUBPIX_WIDTH * (antideriv_subpix(zh) - antideriv_subpix(zl)) / dx;
+            }
+
+            /* Mean of the row profile over a footprint of height dx, centred on x. */
+            float intsmear_row(float x, float dx) {
+                float zl = clamp((x - dx * 0.5) / ROW_WIDTH, -1.0, 1.0);
+                float zh = clamp((x + dx * 0.5) / ROW_WIDTH, -1.0, 1.0);
+                return ROW_WIDTH * (antideriv_row(zh) - antideriv_row(zl)) / dx;
+            }
+
+            /* Fetches the texel at [idx] and moves it into linear light.
+             * Only the lower bound is clamped: the gain deliberately pushes the
+             * bright end above 1 so the tone curve stays where it was, and pow()
+             * is perfectly happy with a base larger than one. */
+            vec3 fetch_texel(vec2 idx, vec2 texel) {
+                vec3 c = texture2D(tex, uUVMin + (idx + 0.5) * texel).bgr * GAIN + BLACKLEVEL;
+                return pow(max(c, 0.0), vec3(GAMMA)) + AMBIENT;
+            }
+
+            void main() {
+                /* Guard against an unset uniform turning everything into NaN */
+                vec2 span = max(uUVSpan, vec2(1.0e-6));
+                vec2 size = max(uSrcSize, vec2(1.0));
+                vec2 texel = span / size;
+
+                /* Position inside the panel, in source pixels. */
+                vec2 pos = (uv - uUVMin) / span * size;
+
+                /* floor(pos - 0.5) puts the fragment's position somewhere in
+                 * [cell + 0.5, cell + 1.5). Those two pixels are the only ones that
+                 * can reach it, since a subpixel profile reaches half a pixel either
+                 * side of a subpixel centre and a row profile 0.63 of a pixel either
+                 * side of a row centre. Using floor(pos) instead would shift the
+                 * window and drop the left neighbour over the first third of every
+                 * pixel. */
+                vec2 cell = floor(pos - 0.5);
+                vec2 off = pos - cell - 0.5;
+
+                /* Footprint of this framebuffer pixel, in subpixel / row units. */
+                float dx = max(uFragScale.x * 3.0, 1.0e-4);
+                float dy = max(uFragScale.y, 1.0e-4);
+
+                /* off runs over [0,1) as the distance from the centre of cell, so the
+                 * fragment still belongs to cell while off < 0.5 and to cell+1 from
+                 * 0.5 on. In subpixel units sx is 0 at that centre, so the six
+                 * weights below are taken at the subpixel centres -1/0/+1 of cell and
+                 * +2/+3/+4 of cell+1. */
+                float sx = off.x * 3.0;
+                vec3 lcol = vec3(intsmear_subpix(sx + 1.0, dx),
+                                 intsmear_subpix(sx, dx),
+                                 intsmear_subpix(sx - 1.0, dx));
+                vec3 rcol = vec3(intsmear_subpix(sx - 2.0, dx),
+                                 intsmear_subpix(sx - 3.0, dx),
+                                 intsmear_subpix(sx - 4.0, dx));
+
+                if (BGR > 0.5) {
+                    lcol.rgb = lcol.bgr;
+                    rcol.rgb = rcol.bgr;
+                }
+
+                float tcol = intsmear_row(off.y, dy);
+                float bcol = intsmear_row(off.y - 1.0, dy);
+
+                vec2 hi = size - 1.0;
+                vec3 topLeft     = fetch_texel(clamp(cell + vec2(0.0, 0.0), vec2(0.0), hi), texel);
+                vec3 topRight    = fetch_texel(clamp(cell + vec2(1.0, 0.0), vec2(0.0), hi), texel);
+                vec3 bottomLeft  = fetch_texel(clamp(cell + vec2(0.0, 1.0), vec2(0.0), hi), texel);
+                vec3 bottomRight = fetch_texel(clamp(cell + vec2(1.0, 1.0), vec2(0.0), hi), texel);
+
+                vec3 color = topLeft     * lcol * tcol
+                           + topRight    * rcol * tcol
+                           + bottomLeft  * lcol * bcol
+                           + bottomRight * rcol * bcol;
+
+                /* The subpixel colours are applied in linear light, as in the original */
+                color = mat3(pow(SUBPIX_R, vec3(OUTGAMMA)),
+                             pow(SUBPIX_G, vec3(OUTGAMMA)),
+                             pow(SUBPIX_B, vec3(OUTGAMMA))) * color;
+
+                gl_FragColor = vec4(pow(max(color, vec3(0.0)), vec3(1.0 / OUTGAMMA)), alpha);
+            }
+            """.trimIndent()
+        )
+
         // Author: Themaister
         // This code is hereby placed in the public domain.
         val ScanlinesShader = ShaderProgramSource(
