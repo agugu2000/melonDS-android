@@ -220,14 +220,14 @@
     <string name="enable_rich_presence">Attiva rich presence</string>
     <string name="rich_presence_summary">Permette agli altri utenti di RetroAchievement di vedere a cosa stai giocando</string>
     <string name="hardcore_mode">Modalità Hardcore</string>
-    <string name="hardcore_mode_summary">Guadagna il doppio dei punti, ma non puoi usare i salvataggi dello stato, i trucchi o il rallentatore durante il gioco</string>
+    <string name="hardcore_mode_summary">Consente di ottenere obiettivi hardcore. Trucchi, salvataggi di stato, rallentatore e riavvolgimento sono disabilitati</string>
 
     <string name="cheats">Trucchi</string>
     <string name="cheats_summary">Abilita e importa trucchi</string>
     <string name="enable_cheats">Abilita trucchi</string>
     <string name="cheats_database">Database trucchi (formato XML)</string>
     <string name="import_cheats">Importa trucchi</string>
-    <string name="import_cheats_summary">Importa trucchi da un database in modo da renderli disponibili. Al momento sono supportati solo i database XML. Tutti i trucchi importati in precedenza verranno cancellati.</string>
+    <string name="import_cheats_summary">Importa trucchi da un database in modo da renderli disponibili. Sono supportati i database XML e usrcheat.dat. Tutti i trucchi importati in precedenza verranno cancellati.</string>
     <string name="rom_shortcut">Scorciatoia ROM</string>
 
     <string name="firmware_nickname">Soprannome</string>

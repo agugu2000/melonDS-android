@@ -122,7 +122,7 @@
     <string name="storage_permission_required">Izin penyimpanan diperlukan</string>
     <string name="storage_permission_required_info">Izin penyimpanan diperlukan untuk memuat ROM dari perangkat anda. Silahkan berikan akses ke penyimpanan pada dialog selanjutnya.</string>
     <string name="microphone_permission_required">Izin perekaman suara diperlukan</string>
-    <string name="microphone_permission_required_info">Izin perekaman suara diperlukan untuk mengirim data mikrofon data ke emulator. Silahkan berikan akses ke penyimpanan pada dialog selanjutnya.</string>
+    <string name="microphone_permission_required_info">Izin perekaman suara diperlukan untuk mengirim data mikrofon ke emulator. Silahkan berikan akses ke mikrofon pada dialog selanjutnya.</string>
     <string name="system_file_picker_not_found">Perangkat anda tidak memiliki pemilih berkas. Tanpanya, emulator ini tidak akan bekerja</string>
     <string name="system_file_picker_not_enabled">Pemilih berkas perangkat anda tidak aktif. Silahkan aktifkan</string>
     <string name="file_picker_settings">Pengaturan pemilih berkas</string>
@@ -264,7 +264,7 @@
     <string name="enable_rich_presence">Aktifkan tampilan kaya</string>
     <string name="rich_presence_summary">Memungkinkan pengguna RetroAchievements lain untuk melihat apa yang anda mainkan</string>
     <string name="hardcore_mode">Moda Hardcore</string>
-    <string name="hardcore_mode_summary">Dapatkan dua kali lebih banyak poin namun anda tidak dapat menggunakan simpan status, curang atau gerak-lambat ketika bermain</string>
+    <string name="hardcore_mode_summary">Memungkinkan pencapaian hardcore untuk diperoleh. Curang, simpan status, gerak lambat, dan putar ulang dinonaktifkan</string>
     <string name="show_active_challenge_indicators">Tampilkan indikator tantangan aktif</string>
     <string name="show_active_challenge_indicators_summary">Tampilkan indikator pada-layar ketika tantangan tertentu dapat diperoleh</string>
     <string name="show_progress_indicators">Tampilkan indikator kemajuan</string>
@@ -277,7 +277,7 @@
     <string name="enable_cheats">Mengaktifkan curang</string>
     <string name="cheats_database">Basis data curang (format XML)</string>
     <string name="import_cheats">Mengimpor curang</string>
-    <string name="import_cheats_summary">Mengimpor curang dari berkas basis data untuk membuatnya tersedia. Hanya basis data XML yang didukung untuk sekarang. Curang apa pun yang terpasang sebelumnya akan dihapus.</string>
+    <string name="import_cheats_summary">Mengimpor curang dari berkas basis data untuk membuatnya tersedia. Basis data XML dan usrcheat.dat didukung. Curang apa pun yang terpasang sebelumnya akan dihapus.</string>
     <string name="rom_shortcut">Pintasan ROM</string>
 
     <string name="firmware_nickname">Nama panggilan</string>

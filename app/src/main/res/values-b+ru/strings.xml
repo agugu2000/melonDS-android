@@ -122,7 +122,7 @@
     <string name="storage_permission_required">Требуется разрешение на доступ к памяти</string>
     <string name="storage_permission_required_info">Для запуска игр требуется разрешение на доступ к памяти устройства. Пожалуйста, предоставьте доступ к хранилищу в следующем окне.</string>
     <string name="microphone_permission_required">Требуется разрешение для записи звука</string>
-    <string name="microphone_permission_required_info">Для передачи данных микрофона эмулятору требуется разрешение на запись звука. Пожалуйста, предоставьте доступ к хранилищу в следующем окне.</string>
+    <string name="microphone_permission_required_info">Для передачи данных микрофона эмулятору требуется разрешение на запись звука. Пожалуйста, предоставьте доступ к микрофону в следующем окне.</string>
     <string name="system_file_picker_not_found">На устройстве не установлено приложение для выбора файлов. Без него работа эмулятора невозможна.</string>
     <string name="system_file_picker_not_enabled">На устройстве отключено приложение для выбора файлов. Пожалуйста, включите его.</string>
     <string name="file_picker_settings">Настройки выбора файлов</string>
@@ -264,7 +264,7 @@
     <string name="enable_rich_presence">Статус активности</string>
     <string name="rich_presence_summary">Позволяет другим пользователям RetroAchievements видеть запущенную вами игру.</string>
     <string name="hardcore_mode">Режим хардкора</string>
-    <string name="hardcore_mode_summary">Удваивает количество очков, но запрещает быстрые сохранения, чит-коды и замедление геймплея</string>
+    <string name="hardcore_mode_summary">Позволяет получать хардкорные достижения. Чит-коды, быстрые сохранения, замедление и обратная перемотка отключены</string>
     <string name="show_active_challenge_indicators">Показывать значки активных испытаний</string>
     <string name="show_active_challenge_indicators_summary">Отображать на экране индикаторы при возможности получить определённые достижения</string>
     <string name="show_progress_indicators">Показывать индикаторы прогресса</string>
@@ -277,7 +277,7 @@
     <string name="enable_cheats">Загружать чит-коды</string>
     <string name="cheats_database">База чит-кодов (в XML)</string>
     <string name="import_cheats">Импорт чит-кодов</string>
-    <string name="import_cheats_summary">Импортируйте файл с базой в формате XML для загрузки чит-кодов в играх. Все ранее добавленные чит-коды будут удалены.</string>
+    <string name="import_cheats_summary">Импортируйте файл с базой в формате XML или usrcheat.dat для загрузки чит-кодов в играх. Все ранее добавленные чит-коды будут удалены.</string>
     <string name="rom_shortcut">Ярлык для игры</string>
 
     <string name="firmware_nickname">Никнейм</string>

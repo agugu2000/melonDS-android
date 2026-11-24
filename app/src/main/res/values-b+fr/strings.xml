@@ -106,7 +106,7 @@
     <string name="storage_permission_required">Autorisation de stockage requise</string>
     <string name="storage_permission_required_info">L\'autorisation de stockage est nécessaire pour charger les ROMs de votre appareil. Veuillez accorder l\'accès au stockage dans la boîte de dialogue suivante.</string>
     <string name="microphone_permission_required">Autorisation d\'enregistrement audio requise</string>
-    <string name="microphone_permission_required_info">L\'autorisation d\'enregistrement audio est nécessaire pour envoyer les données du microphone à l\'émulateur. Veuillez accorder l\'accès au stockage dans la prochaine boîte de dialogue.</string>
+    <string name="microphone_permission_required_info">L\'autorisation d\'enregistrement audio est nécessaire pour envoyer les données du microphone à l\'émulateur. Veuillez accorder l\'accès au microphone dans la prochaine boîte de dialogue.</string>
     <string name="no_rom_search_directory_specified">Aucun répertoire de ROMs spécifié</string>
     <string name="set_rom_directory">Définir le répertoire des ROMs</string>
     <string name="error_invalid_directory">Répertoire invalide</string>
@@ -206,14 +206,14 @@
     <string name="enable_rich_presence">Activer Rich Presence</string>
     <string name="rich_presence_summary">Permet aux autres utilisateurs de RetroAchievement de voir ce à quoi vous jouez</string>
     <string name="hardcore_mode">Mode Hardcore</string>
-    <string name="hardcore_mode_summary">Gagnez le double de points, mais vous ne pouvez pas utiliser les sauvegardes d\'état, ni les triches, ni le ralenti en jeu</string>
+    <string name="hardcore_mode_summary">Permet d\'obtenir des succès hardcore. Les triches, les sauvegardes d\'état, le ralenti et le rembobinage sont désactivés</string>
     
     <string name="cheats">Triches</string>
     <string name="cheats_summary">Activer et importer des codes de triche</string>
     <string name="enable_cheats">Activer les triches</string>
     <string name="cheats_database">Base de données de triches (au format XML)</string>
     <string name="import_cheats">Importer des triches</string>
-    <string name="import_cheats_summary">Importer des triches depuis des fichiers de base de données pour les rendre disponibles. Seules les bases de données au format XML sont prises en charge pour le moment. Toutes les triches précédemment importées seront supprimées.</string>
+    <string name="import_cheats_summary">Importer des triches depuis des fichiers de base de données pour les rendre disponibles. Les bases de données XML et usrcheat.dat sont prises en charge. Toutes les triches précédemment importées seront supprimées.</string>
     <string name="rom_shortcut">Raccourci de la ROM</string>
 
     <string name="firmware_nickname">Pseudo</string>
@@ -264,7 +264,7 @@
     <string name="input_select">SELECT</string>
     <string name="input_lid">Fermer/Ouvrir la console</string>
     <string name="input_pause">Pause</string>
-    <string name="input_fast_forward">Accélérer</string>
+    <string name="input_fast_forward">Accélérer (bascule)</string>
     <string name="input_toggle_soft_input">Entrée logicielle</string>
     <string name="input_reset">@string/reset</string>
     <string name="input_dpad">Croix directionnelle</string>

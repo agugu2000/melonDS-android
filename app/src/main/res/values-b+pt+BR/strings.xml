@@ -95,7 +95,7 @@
     <string name="storage_permission_required">Permissão de armazenamento necessária</string>
     <string name="storage_permission_required_info">A permissão de armazenamento é necessária para carregar ROMs no seu dispositivo. Por favor, conceda acesso ao armazenamento na próxima caixa de diálogo.</string>
     <string name="microphone_permission_required">Permissão de gravação de áudio necessária</string>
-    <string name="microphone_permission_required_info">A permissão de gravação de áudio é necessária para enviar dados de microfone para o emulador. Por favor, conceda acesso ao armazenamento na próxima caixa de diálogo.</string>
+    <string name="microphone_permission_required_info">A permissão de gravação de áudio é necessária para enviar dados de microfone para o emulador. Por favor, conceda acesso ao microfone na próxima caixa de diálogo.</string>
     <string name="no_rom_search_directory_specified">Nenhum diretório de pesquisa de ROM especificado</string>
     <string name="set_rom_directory">Definir diretório de ROM</string>
     <string name="error_invalid_directory">Diretório inválido</string>
@@ -192,7 +192,7 @@
     <string name="enable_cheats">Ativar cheats (trapaças)</string>
     <string name="cheats_database">Banco de dados de cheats (trapaças) (formato XML)</string>
     <string name="import_cheats">Importar cheats (trapaças)</string>
-    <string name="import_cheats_summary">Importe cheats (trapaças) de arquivos de bancos de dados para disponibilizá-los. Apenas bancos de dados XML são suportados por enquanto. Qualquer cheat (trapaça) previamente importado será deletado.</string>
+    <string name="import_cheats_summary">Importe cheats (trapaças) de arquivos de bancos de dados para disponibilizá-los. Bancos de dados XML e usrcheat.dat são suportados. Qualquer cheat (trapaça) previamente importado será deletado.</string>
     <string name="rom_shortcut">Atalho da ROM</string>
 
     <string name="firmware_nickname">Apelido</string>

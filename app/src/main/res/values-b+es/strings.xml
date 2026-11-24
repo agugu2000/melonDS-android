@@ -86,7 +86,7 @@
     <string name="save_states_not_supported">Los estados de guardado no son compatibles mientras se ejecuta el firmware</string>
     <string name="save_states_unavailable_ra_hardcore_enabled">Guardados no disponibles en modo Hardcore</string>
     <string name="rewind_time_seconds">%1$ss</string> <!-- Ej: 43,56s -->
-    <string name="rewind_time_minutes_seconds">%1$dmin2$ss</string> <!-- Ej: 2min37,93s -->
+    <string name="rewind_time_minutes_seconds">%1$dmin%2$ss</string> <!-- Ej: 2min37,93s -->
     <string name="rewind_not_enabled">El rebobinado no está habilitado</string>
     <string name="rewind_unavailable_ra_hardcore_enabled">El rebobinado no disponible en modo Hardcore</string>
     <string name="no_image_selected">Ninguna imagen seleccionada</string>
@@ -105,7 +105,7 @@
     <string name="storage_permission_required">Se requiere permiso de almacenamiento</string>
     <string name="storage_permission_required_info">Se requiere permiso de almacenamiento para cargar la ROM. Conceda acceso al almacenamiento en el siguiente cuadro de diálogo.</string>
     <string name="microphone_permission_required">Se requiere permiso de grabación de audio</string>
-    <string name="microphone_permission_required_info">Se requiere permiso de grabación de audio para enviar datos del micrófono. Conceda acceso al almacenamiento en el siguiente cuadro de diálogo.</string>
+    <string name="microphone_permission_required_info">Se requiere permiso de grabación de audio para enviar datos del micrófono. Conceda acceso al micrófono en el siguiente cuadro de diálogo.</string>
     <string name="no_rom_search_directory_specified">No se ha especificado ningún directorio de búsqueda de la ROM</string>
     <string name="set_rom_directory">Establecer directorio de la ROM</string>
     <string name="error_invalid_directory">Directorio no válido</string>
@@ -223,14 +223,14 @@
     <string name="enable_rich_presence">Activar la opción para mostrar lo que estás haciendo</string>
     <string name="rich_presence_summary">Permite que otros usuarios de RetroAchievement vean lo que estás jugando</string>
     <string name="hardcore_mode">Modo Hardcore</string>
-    <string name="hardcore_mode_summary">Gana el doble de puntos, pero no puedes usar estados de guardado, trucos ni cámara lenta mientras juegas</string>
+    <string name="hardcore_mode_summary">Permite obtener logros hardcore. Se desactivan los trucos, los estados de guardado, la cámara lenta y el rebobinado</string>
 
     <string name="cheats">Trucos</string>
     <string name="cheats_summary">Habilitar e importar trucos de &amp; trucos</string>
     <string name="enable_cheats">Habilitar trucos</string>
     <string name="cheats_database">Base de datos de trucos (formato XML)</string>
     <string name="import_cheats">Importar trucos</string>
-    <string name="import_cheats_summary">Importar trucos desde archivos de base de datos para tenerlos disponibles. Por ahora, solo se admiten bases de datos en formato XML. Cualquier truco previamente importado se eliminará</string>
+    <string name="import_cheats_summary">Importar trucos desde archivos de base de datos para tenerlos disponibles. Se admiten bases de datos XML y usrcheat.dat. Cualquier truco previamente importado se eliminará</string>
     <string name="rom_shortcut">Acceso directo de la ROM</string>
     
     <string name="firmware_nickname">Apodo</string>
